@@ -1,0 +1,91 @@
+services:
+  # --- Bonus web target: OWASP Juice Shop ---
+  juice-shop:
+    image: bkimminich/juice-shop
+    ports:
+      - "3000:3000"
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- WEBSITE: DVWA (needs its own MariaDB) ---
+  dvwa:
+    image: ghcr.io/digininja/dvwa:latest
+    environment:
+      - DB_SERVER=dvwa-db
+    depends_on: [dvwa-db]
+    ports:
+      - "8080:80"
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  dvwa-db:
+    image: docker.io/library/mariadb:10
+    environment:
+      - MYSQL_ROOT_PASSWORD=dvwa
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    volumes:
+      - dvwa-db:/var/lib/mysql
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- WEBSITE: OWASP WebGoat ---
+  webgoat:
+    image: webgoat/webgoat
+    ports:
+      - "8888:8080"   # WebGoat
+      - "9090:9090"   # WebWolf
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- API: OWASP VAmPI (vulnerable mode) ---
+  vampi:
+    build: ./api
+    environment:
+      - vulnerable=1
+      - tokentimetolive=3600
+    ports:
+      - "5000:5000"
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- API: Damn Vulnerable GraphQL Application ---
+  dvga:
+    image: dolevf/dvga
+    environment:
+      - WEB_HOST=0.0.0.0
+    ports:
+      - "5013:5013"
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- NETWORK: Metasploitable 2 (classic vulnerable host) ---
+  metasploitable:
+    image: tleemcjr/metasploitable2
+    command: sh -c '/bin/services.sh && tail -f /dev/null'
+    ports:
+      - "2221:22"    # ssh
+      - "2223:23"    # telnet
+      - "8021:21"    # ftp
+      - "8081:80"    # http
+      - "3306:3306"  # mysql
+      - "5432:5432"  # postgres
+      - "6667:6667"  # ircd (backdoor)
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+  # --- NETWORK: unauthenticated Redis (quick recon target) ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks: [vuln-lab]
+    restart: unless-stopped
+
+networks:
+  vuln-lab:
+    name: vuln-lab
+
+volumes:
+  dvwa-db:
